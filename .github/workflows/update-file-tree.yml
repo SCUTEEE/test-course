@@ -3,7 +3,7 @@ name: Update Resources File Tree
 on:
   push:
     branches:
-      - resources
+      - 'resources'
 
 jobs:
   update-file-tree:
