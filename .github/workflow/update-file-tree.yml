@@ -1,0 +1,69 @@
+name: Update Resources File Tree
+
+on:
+  push:
+    branches:
+      - resources
+
+jobs:
+  update-file-tree:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.x'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install GitPython
+
+    - name: Generate and update file tree
+      run: |
+        import os
+        from git import Repo
+        from pathlib import Path
+
+        def generate_file_tree(path, prefix="", ignore=['.git']):
+            tree = []
+            path = Path(path)
+            for item in sorted(path.iterdir()):
+                if item.name in ignore:
+                    continue
+                tree.append(f"{prefix}- {item.name}")
+                if item.is_dir():
+                    tree.extend(generate_file_tree(item, prefix + "  "))
+            return tree
+
+        repo = Repo(os.getcwd())
+        repo.git.checkout('resources')
+        file_tree = generate_file_tree(os.getcwd())
+        
+        repo.git.checkout('main')
+        with open('resources-list.md', 'w', encoding='utf-8') as f:
+            f.write("# Resources Branch File Tree\n\n")
+            f.write("```\n")
+            f.write("\n".join(file_tree))
+            f.write("\n```")
+        
+        repo.git.add('resources-list.md')
+        if repo.index.diff("HEAD"):
+            repo.git.commit('-m', 'Update resources-list.md with latest file tree')
+            repo.git.push()
+
+      shell: python
+
+    - name: Push changes
+      run: |
+        git config --global user.name 'GitHub Action'
+        git config --global user.email 'action@github.com'
+        git push origin main
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
