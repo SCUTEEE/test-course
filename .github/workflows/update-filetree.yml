@@ -1,0 +1,79 @@
+name: Update Resources File Tree
+
+on:
+  push:
+    branches:
+      - 'resources'
+
+  workflow_dispatch:
+
+jobs:
+  update-filetree:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout resources branch
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        ref: resources
+
+    - name: Record latest commit info on resources
+      id: get_commit
+      run: |
+        echo "commit_hash=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+        echo "commit_msg=$(git log -1 --pretty=%s)" >> $GITHUB_OUTPUT
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.x'
+
+    - name: Install dependencies
+      run: pip install pyyaml
+
+    - name: Generate file tree YAML
+      run: |
+        python <<EOF
+        import os
+        import yaml
+        from pathlib import Path
+
+        def generate_tree(path):
+            tree = {}
+            for item in sorted(path.iterdir()):
+                if item.name.startswith('.') or item.name in {'.git', '.github', '__pycache__'}:
+                    continue
+                if item.is_dir():
+                    tree[item.name] = generate_tree(item)
+                else:
+                    tree[item.name] = None
+            return tree
+
+        file_tree = generate_tree(Path('.'))
+        with open('../filetree.yml', 'w', encoding='utf-8') as f:
+            yaml.dump(file_tree, f, allow_unicode=True, sort_keys=False)
+        EOF
+
+    - name: Checkout main branch
+      run: git checkout main
+
+    - name: Move and commit filetree.yml
+      env:
+        COMMIT_HASH: ${{ steps.get_commit.outputs.commit_hash }}
+        COMMIT_MSG: ${{ steps.get_commit.outputs.commit_msg }}
+      run: |
+        bash -c "
+          mv ../filetree.yml filetree.yml
+          git config user.name 'GitHub Actions'
+          git config user.email 'action@github.com'
+          if [[ \$(git status --porcelain filetree.yml) ]]; then
+            git add filetree.yml
+            git commit -m \"Update filetree.yml with latest resources tree
+
+            Source commit: \$COMMIT_HASH - \$COMMIT_MSG\"
+            git push origin main
+          else
+            echo 'No changes to commit.'
+          fi
+        "
