@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - resources
+
   workflow_dispatch:
 
 jobs:
@@ -59,13 +60,17 @@ jobs:
 
     - name: Move and commit filetree.yml
       run: |
-        mv ../filetree.yml filetree.yml
-        git config user.name "GitHub Actions"
-        git config user.email "action@github.com"
-        
-        if [[ $(git status --porcelain filetree.yml) ]]; then
-          git add filetree.yml
-          git commit -m $'Update filetree.yml with latest resources tree\n\nSource commit: ${{ steps.get_commit.outputs.commit_hash }} - ${{ steps.get_commit.outputs.commit_msg }}'
-          git push origin main
-        else
-          echo "No changes to commit."
+        bash -c '
+          mv ../filetree.yml filetree.yml
+          git config user.name "GitHub Actions"
+          git config user.email "action@github.com"
+          if [[ $(git status --porcelain filetree.yml) ]]; then
+            git add filetree.yml
+            git commit -m $'"'"'Update filetree.yml with latest resources tree
+
+Source commit: ${{ steps.get_commit.outputs.commit_hash }} - ${{ steps.get_commit.outputs.commit_msg }}'"'"'
+            git push origin main
+          else
+            echo "No changes to commit."
+          fi
+        '
