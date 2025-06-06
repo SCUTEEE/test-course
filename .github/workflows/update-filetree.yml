@@ -33,21 +33,29 @@ jobs:
       run: pip install pyyaml
 
     - name: Generate file tree YAML
+      env:
+        GITHUB_REPO: ${{ github.repository }}
+        GITHUB_BRANCH: resources
       run: |
         python <<EOF
         import os
         import yaml
         from pathlib import Path
 
-        def generate_tree(path):
+        GITHUB_REPO = os.environ["GITHUB_REPO"]
+        GITHUB_BRANCH = os.environ["GITHUB_BRANCH"]
+
+        def generate_tree(path, relative=""):
             tree = {}
             for item in sorted(path.iterdir()):
                 if item.name.startswith('.') or item.name in {'.git', '.github', '__pycache__'}:
                     continue
+                rel_path = (relative / item.name) if relative else Path(item.name)
                 if item.is_dir():
-                    tree[item.name] = generate_tree(item)
+                    tree[item.name] = generate_tree(item, rel_path)
                 else:
-                    tree[item.name] = None
+                    url = f"https://github.com/{GITHUB_REPO}/blob/{GITHUB_BRANCH}/{rel_path}"
+                    tree[item.name] = url
             return tree
 
         file_tree = generate_tree(Path('.'))
