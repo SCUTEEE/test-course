@@ -1,7 +1,7 @@
-README.md: null
+README.md: https://github.com/SCUTEEE/test-course/blob/resources/README.md
 notes:
-  README.md: null
+  README.md: https://github.com/SCUTEEE/test-course/blob/resources/notes/README.md
 slides:
-  README.md: null
-  test: null
-test: null
+  README.md: https://github.com/SCUTEEE/test-course/blob/resources/slides/README.md
+  test: https://github.com/SCUTEEE/test-course/blob/resources/slides/test
+test: https://github.com/SCUTEEE/test-course/blob/resources/test
