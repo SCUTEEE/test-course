@@ -3,18 +3,25 @@ name: Update Resources File Tree
 on:
   push:
     branches:
-      - 'resources'
-  workflow_dispatch:  # 添加手动触发
+      - resources
+  workflow_dispatch:
 
 jobs:
   update-file-tree:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout repository
+    - name: Checkout resources branch
       uses: actions/checkout@v4
       with:
         fetch-depth: 0
+        ref: resources
+
+    - name: Record latest commit info on resources
+      id: get_commit
+      run: |
+        echo "commit_hash=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+        echo "commit_msg=$(git log -1 --pretty=%s)" >> $GITHUB_OUTPUT
 
     - name: Set up Python
       uses: actions/setup-python@v5
@@ -22,54 +29,43 @@ jobs:
         python-version: '3.x'
 
     - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install GitPython
+      run: pip install pyyaml
 
-    - name: Configure Git user
+    - name: Generate file tree YAML
       run: |
-        git config --global user.name 'GitHub Action'
-        git config --global user.email 'action@github.com'
-
-    - name: Generate and update file tree
-      run: |
+        python <<EOF
         import os
-        from git import Repo
+        import yaml
         from pathlib import Path
 
-        def generate_file_tree(path, prefix="", ignore=['.git']):
-            tree = []
-            path = Path(path)
-            print(f"Scanning directory: {path}")
+        def generate_tree(path):
+            tree = {}
             for item in sorted(path.iterdir()):
-                if item.name in ignore:
+                if item.name.startswith('.') or item.name in {'.git', '.github', '__pycache__'}:
                     continue
-                tree.append(f"{prefix}- {item.name}")
                 if item.is_dir():
-                    tree.extend(generate_file_tree(item, prefix + "  "))
+                    tree[item.name] = generate_tree(item)
+                else:
+                    tree[item.name] = None
             return tree
 
-        repo = Repo(os.getcwd())
-        print(f"Current branch: {repo.active_branch}")
-        repo.git.checkout('resources')
-        print(f"Switched to branch: {repo.active_branch}")
-        file_tree = generate_file_tree(os.getcwd())
-        print(f"Generated file tree: {file_tree}")
+        file_tree = generate_tree(Path('.'))
+        with open('../filetree.yml', 'w', encoding='utf-8') as f:
+            yaml.dump(file_tree, f, allow_unicode=True, sort_keys=False)
+        EOF
+
+    - name: Checkout main branch
+      run: git checkout main
+
+    - name: Move and commit filetree.yml
+      run: |
+        mv ../filetree.yml filetree.yml
+        git config user.name "GitHub Actions"
+        git config user.email "action@github.com"
         
-        repo.git.checkout('main')
-        print(f"Switched to branch: {repo.active_branch}")
-        with open('resources-list.md', 'w', encoding='utf-8') as f:
-            f.write("# Resources Branch File Tree\n\n")
-            f.write("```\n")
-            f.write("\n".join(file_tree))
-            f.write("\n```")
-        
-        repo.git.add('resources-list.md')
-        if repo.index.diff("HEAD"):
-            repo.git.commit('-m', 'Update resources-list.md with latest file tree')
-            print("Changes committed")
-            repo.git.push()
-            print("Changes pushed")
-        else:
-            print("No changes to commit")
-      shell: python
+        if [[ $(git status --porcelain filetree.yml) ]]; then
+          git add filetree.yml
+          git commit -m $'Update filetree.yml with latest resources tree\n\nSource commit: ${{ steps.get_commit.outputs.commit_hash }} - ${{ steps.get_commit.outputs.commit_msg }}'
+          git push origin main
+        else
+          echo "No changes to commit."
