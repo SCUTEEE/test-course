@@ -41,21 +41,39 @@ jobs:
         import os
         import yaml
         from pathlib import Path
+        from datetime import datetime
 
         GITHUB_REPO = os.environ["GITHUB_REPO"]
         GITHUB_BRANCH = os.environ["GITHUB_BRANCH"]
+
+        def format_size(bytesize):
+            for unit in ['B', 'KB', 'MB', 'GB']:
+                if bytesize < 1024:
+                    return f"{bytesize:.1f} {unit}"
+                bytesize /= 1024
+            return f"{bytesize:.1f} TB"
+
+        def get_file_info(path, rel_path):
+            stat = path.stat()
+            size = format_size(stat.st_size)
+            modified = datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%d")
+            url = f"https://github.com/{GITHUB_REPO}/blob/{GITHUB_BRANCH}/{rel_path}"
+            return {
+                "url": url,
+                "size": size,
+                "modified": modified
+            }
 
         def generate_tree(path, relative=""):
             tree = {}
             for item in sorted(path.iterdir()):
                 if item.name.startswith('.') or item.name in {'.git', '.github', '__pycache__'}:
                     continue
-                rel_path = (relative / item.name) if relative else Path(item.name)
+                rel_path = Path(relative) / item.name if relative else Path(item.name)
                 if item.is_dir():
                     tree[item.name] = generate_tree(item, rel_path)
                 else:
-                    url = f"https://github.com/{GITHUB_REPO}/blob/{GITHUB_BRANCH}/{rel_path}"
-                    tree[item.name] = url
+                    tree[item.name] = get_file_info(item, rel_path)
             return tree
 
         file_tree = generate_tree(Path('.'))
