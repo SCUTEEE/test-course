@@ -77,8 +77,15 @@ jobs:
             return items
         
         tree_list = generate_list_format(Path('.'))
+        
+        output = {
+            "repo": f"https://github.com/{GITHUB_REPO}/tree/{GITHUB_BRANCH}",
+            "tree": tree_list
+        }
+        
         with open('../filetree.yml', 'w', encoding='utf-8') as f:
-            yaml.dump(tree_list, f, allow_unicode=True, sort_keys=False)
+            yaml.dump(output, f, allow_unicode=True, sort_keys=False)
+
         EOF
 
     - name: Checkout main branch
