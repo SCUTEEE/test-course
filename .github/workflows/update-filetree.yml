@@ -66,7 +66,7 @@ jobs:
 
         def generate_tree(path, relative=""):
             tree = {}
-            for item in sorted(path.iterdir()):
+            for item in sorted(path.iterdir(), key=lambda x: (not x.is_dir(), x.name.lower())):
                 if item.name.startswith('.') or item.name in {'.git', '.github', '__pycache__'}:
                     continue
                 rel_path = Path(relative) / item.name if relative else Path(item.name)
