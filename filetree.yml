@@ -1,3 +1,5 @@
+repo: https://github.com/SCUTEEE/test-course/tree/resources
+tree:
 - folder: notes
   children:
   - file: README.md
